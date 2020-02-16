@@ -2,8 +2,20 @@
  * @file   ssd1306.h
  * @author Giovanni Scotti
  * @brief  SSD1306 driver module for STM32f10x and STM32F4xx. The original
- *         version has been improved with various bug fixes and restructured
- *         code paying attention to resource-constrained devices.
+ *         version has been improved with various bug fixes and code has been
+ *         restructured paying attention to maximize the portability on
+ *         resource-constrained devices.
+ * 		   This SSD1306 LCD driver uses I2C for communication. Library functions
+ * 		   allow to draw lines, rectangles and circles. It is also possible
+ * 		   to draw text and single characters only.
+ *
+ * @brief  LIBRARY USAGE:
+ * 		   First of all, find the "driver settings" section in the ssd1306.h
+ * 		   file and uncomment the correct define to make the library compatible
+ * 		   with your target STM32 microcontroller.
+ *  	   Before drawing on the screen, remember to call the @ref SSD1306_init
+ *         initialization function passing a pointer to a valid i2c peripheral.
+ *
  * @attention
  * Original author: Tilen Majerle <tilen@majerle.eu>
  * Modification for STM32f10x: Alexander Lutsai <s.lyra@ya.ru>
@@ -42,7 +54,9 @@
 // PRIVATE VARIABLES.
 ///////////////////////////////////////////////////////////////////////////////
 
-/* Private SSD1306 data buffer. */
+/**
+ * @brief Private SSD1306 data buffer.
+ */
 static uint8_t SSD1306_Buffer[SSD1306_WIDTH * SSD1306_HEIGHT / 8];
 
 /**
@@ -50,23 +64,21 @@ static uint8_t SSD1306_Buffer[SSD1306_WIDTH * SSD1306_HEIGHT / 8];
  */
 static SSD1306_t SSD1306;
 
-/**
- * @brief Reference to the i2c peripheral used to communicate with the LCD.
- *        It is initialized by the SSD1306_Init function.
- */
-static I2C_HandleTypeDef *SSD1306_i2c_ptr;
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // FUNCTION DEFINITIONS.
 ///////////////////////////////////////////////////////////////////////////////
 
 SSD1306_status_t SSD1306_init(I2C_HandleTypeDef *i2c_ptr) {
-
 	// Saves the used i2c peripheral and keeps track of it.
-	SSD1306_i2c_ptr = i2c_ptr;
+	SSD1306.i2c_ptr = i2c_ptr;
 
-	if (HAL_I2C_IsDeviceReady(SSD1306_i2c_ptr, SSD1306_I2C_ADDR, 10,
+	// Resets the LCD structure.
+	SSD1306.currentX = 0;
+	SSD1306.currentY = 0;
+	SSD1306.initialized = 0;
+
+	if (HAL_I2C_IsDeviceReady(SSD1306.i2c_ptr, SSD1306_I2C_ADDR, 10,
 		SSD1306_I2C_TIMEOUT) != HAL_OK) {
 		return I2C_ERROR;
 	}
@@ -105,37 +117,40 @@ SSD1306_status_t SSD1306_init(I2C_HandleTypeDef *i2c_ptr) {
 
 	SSD1306_WRITECOMMAND(SSD1306_DEACTIVATE_SCROLL);
 
-	/* Clear screen. */
 	SSD1306_clear();
-
-	/* Set default values */
-	SSD1306.currentX = 0;
-	SSD1306.currentY = 0;
-
-	/* Initialized OK */
 	SSD1306.initialized = 1;
 
-	return I2C_OK;
+	return SSD1306_OK;
 }
 
 
 void SSD1306_clear(void) {
 	SSD1306_fill(SSD1306_COLOR_BLACK);
-    SSD1306_updateScreen();
-    return;
+	SSD1306_updateScreen();
+
+	return;
 }
 
 
 void SSD1306_invertDisplay(uint8_t is_inverted) {
-  if (is_inverted)
-	  SSD1306_WRITECOMMAND(SSD1306_INVERTDISPLAY);
-  else
-	  SSD1306_WRITECOMMAND(SSD1306_NORMALDISPLAY);
-  return;
+	if (!SSD1306.initialized) {
+		return;
+	}
+
+	if (is_inverted)
+		SSD1306_WRITECOMMAND(SSD1306_INVERTDISPLAY);
+	else
+		SSD1306_WRITECOMMAND(SSD1306_NORMALDISPLAY);
+
+	return;
 }
 
 
 void SSD1306_updateScreen(void) {
+	if (!SSD1306.initialized) {
+		return;
+	}
+
 	for (uint8_t m = 0; m < 8; m++) {
 		SSD1306_WRITECOMMAND(0xB0 + m);
 		SSD1306_WRITECOMMAND(0x00);
@@ -150,8 +165,7 @@ void SSD1306_updateScreen(void) {
 
 
 void SSD1306_toggleInvert(void) {
-	// Memory toggling.
-	for (uint16_t i = 0; i < sizeof(SSD1306_Buffer); i++) {
+	for (uint32_t i = 0; i < sizeof(SSD1306_Buffer); i++) {
 		SSD1306_Buffer[i] = ~SSD1306_Buffer[i];
 	}
 
@@ -163,6 +177,8 @@ void SSD1306_toggleInvert(void) {
 
 
 void SSD1306_scrollRight(uint8_t start_row, uint8_t end_row) {
+	// TODO: check input.
+
 	SSD1306_WRITECOMMAND(SSD1306_RIGHT_HORIZONTAL_SCROLL);
 	SSD1306_WRITECOMMAND(0x00);      // send dummy
 	SSD1306_WRITECOMMAND(start_row); // start page address
@@ -176,6 +192,8 @@ void SSD1306_scrollRight(uint8_t start_row, uint8_t end_row) {
 
 
 void SSD1306_scrollLeft(uint8_t start_row, uint8_t end_row) {
+	// TODO: check input.
+
 	SSD1306_WRITECOMMAND(SSD1306_LEFT_HORIZONTAL_SCROLL);  // send 0x26
 	SSD1306_WRITECOMMAND(0x00);  // send dummy
 	SSD1306_WRITECOMMAND(start_row);  // start page address
@@ -189,6 +207,8 @@ void SSD1306_scrollLeft(uint8_t start_row, uint8_t end_row) {
 
 
 void SSD1306_scrollDiagRight(uint8_t start_row, uint8_t end_row) {
+	// TODO: check input.
+
 	SSD1306_WRITECOMMAND(SSD1306_SET_VERTICAL_SCROLL_AREA);  // sect the area
 	SSD1306_WRITECOMMAND(0x00);   // write dummy
 	SSD1306_WRITECOMMAND(SSD1306_HEIGHT);
@@ -205,6 +225,8 @@ void SSD1306_scrollDiagRight(uint8_t start_row, uint8_t end_row) {
 
 
 void SSD1306_scrollDiagLeft(uint8_t start_row, uint8_t end_row) {
+	// TODO: check input.
+
 	SSD1306_WRITECOMMAND(SSD1306_SET_VERTICAL_SCROLL_AREA);  // sect the area
 	SSD1306_WRITECOMMAND(0x00);   // write dummy
 	SSD1306_WRITECOMMAND(SSD1306_HEIGHT);
@@ -222,6 +244,7 @@ void SSD1306_scrollDiagLeft(uint8_t start_row, uint8_t end_row) {
 
 void SSD1306_stopScroll(void) {
 	SSD1306_WRITECOMMAND(SSD1306_DEACTIVATE_SCROLL);
+
 	return;
 }
 
@@ -246,11 +269,12 @@ void SSD1306_drawPixel(uint16_t x, uint16_t y, SSD1306_color_t color) {
 		color = (SSD1306_color_t)!color;
 	}
 
-	// Sets color.
+	// Sets color. Shifting right by 3 means dividing by 8. Bitwise ANDing by
+	// 0x7 means getting the remainder of a division by 8.
 	if (color == SSD1306_COLOR_WHITE) {
-		SSD1306_Buffer[x + (y >> 3) * SSD1306_WIDTH] |= 1 << (y % 8);
+		SSD1306_Buffer[x + (y >> 3) * SSD1306_WIDTH] |= 1 << (y & 0x07);
 	} else {
-		SSD1306_Buffer[x + (y >> 3) * SSD1306_WIDTH] &= ~(1 << (y % 8));
+		SSD1306_Buffer[x + (y >> 3) * SSD1306_WIDTH] &= ~(1 << (y & 0x07));
 	}
 
 	return;
@@ -280,29 +304,34 @@ void SSD1306_drawBitmap(int16_t x, int16_t y, const unsigned char* bitmap,
 
 
 void SSD1306_gotoXY(uint16_t x, uint16_t y) {
-	/* Set write pointers */
+	if (x >= SSD1306_WIDTH || y >= SSD1306_HEIGHT) {
+		return;
+	}
+
+	// Sets write pointers.
 	SSD1306.currentX = x;
 	SSD1306.currentY = y;
+
 	return;
 }
 
 
-char SSD1306_putc(char ch, FontDef_t* font, SSD1306_color_t color) {
-	uint32_t i, b, j;
+void SSD1306_putc(char ch, FontDef_t* font, SSD1306_color_t color) {
+	uint16_t b;
 	
-	/* Check available space in LCD */
-	if (
-		SSD1306_WIDTH <= (SSD1306.currentX + font->FontWidth) ||
-		SSD1306_HEIGHT <= (SSD1306.currentY + font->FontHeight)
-	) {
-		/* Error */
-		return 0;
+	// Check available space on the visible LCD area.
+	if (SSD1306_WIDTH <= (SSD1306.currentX + font->FontWidth) ||
+		SSD1306_HEIGHT <= (SSD1306.currentY + font->FontHeight)) {
+
+		return;
 	}
 	
-	/* Go through font */
-	for (i = 0; i < font->FontHeight; i++) {
+	for (uint8_t i = 0; i < font->FontHeight; i++) {
+		// Since the first available character of the ASCII table is 'space'
+		// (32d), subtracts it from the given char to compute the array index.
 		b = font->data[(ch - 32) * font->FontHeight + i];
-		for (j = 0; j < font->FontWidth; j++) {
+
+		for (uint8_t j = 0; j < font->FontWidth; j++) {
 			if ((b << j) & 0x8000) {
 				SSD1306_drawPixel(SSD1306.currentX + j, (SSD1306.currentY + i),
 					color);
@@ -313,24 +342,17 @@ char SSD1306_putc(char ch, FontDef_t* font, SSD1306_color_t color) {
 		}
 	}
 	
-	/* Increase pointer */
+	// Updates the X pointer.
 	SSD1306.currentX += font->FontWidth;
 	
-	/* Return character written */
-	return ch;
+	return;
 }
 
 
 void SSD1306_puts(char* str, FontDef_t* Font, SSD1306_color_t color) {
-	/* Write characters */
 	while (*str) {
-		/* Write character by character */
-		if (SSD1306_putc(*str, Font, color) != *str) {
-			/* Return error */
-			return;
-		}
-
-		/* Increase string pointer */
+		// Write character by character.
+		SSD1306_putc(*str, Font, color);
 		str++;
 	}
 
@@ -338,281 +360,309 @@ void SSD1306_puts(char* str, FontDef_t* Font, SSD1306_color_t color) {
 }
 
 
-//void SSD1306_DrawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, SSD1306_COLOR_t c) {
-//	int16_t dx, dy, sx, sy, err, e2, i, tmp;
-//
-//	/* Check for overflow */
-//	if (x0 >= SSD1306_WIDTH) {
-//		x0 = SSD1306_WIDTH - 1;
-//	}
-//	if (x1 >= SSD1306_WIDTH) {
-//		x1 = SSD1306_WIDTH - 1;
-//	}
-//	if (y0 >= SSD1306_HEIGHT) {
-//		y0 = SSD1306_HEIGHT - 1;
-//	}
-//	if (y1 >= SSD1306_HEIGHT) {
-//		y1 = SSD1306_HEIGHT - 1;
-//	}
-//
-//	dx = (x0 < x1) ? (x1 - x0) : (x0 - x1);
-//	dy = (y0 < y1) ? (y1 - y0) : (y0 - y1);
-//	sx = (x0 < x1) ? 1 : -1;
-//	sy = (y0 < y1) ? 1 : -1;
-//	err = ((dx > dy) ? dx : -dy) / 2;
-//
-//	if (dx == 0) {
-//		if (y1 < y0) {
-//			tmp = y1;
-//			y1 = y0;
-//			y0 = tmp;
-//		}
-//
-//		if (x1 < x0) {
-//			tmp = x1;
-//			x1 = x0;
-//			x0 = tmp;
-//		}
-//
-//		/* Vertical line */
-//		for (i = y0; i <= y1; i++) {
-//			SSD1306_DrawPixel(x0, i, c);
-//		}
-//
-//		/* Return from function */
-//		return;
-//	}
-//
-//	if (dy == 0) {
-//		if (y1 < y0) {
-//			tmp = y1;
-//			y1 = y0;
-//			y0 = tmp;
-//		}
-//
-//		if (x1 < x0) {
-//			tmp = x1;
-//			x1 = x0;
-//			x0 = tmp;
-//		}
-//
-//		/* Horizontal line */
-//		for (i = x0; i <= x1; i++) {
-//			SSD1306_DrawPixel(i, y0, c);
-//		}
-//
-//		/* Return from function */
-//		return;
-//	}
-//
-//	while (1) {
-//		SSD1306_DrawPixel(x0, y0, c);
-//		if (x0 == x1 && y0 == y1) {
-//			break;
-//		}
-//		e2 = err;
-//		if (e2 > -dx) {
-//			err -= dy;
-//			x0 += sx;
-//		}
-//		if (e2 < dy) {
-//			err += dx;
-//			y0 += sy;
-//		}
-//	}
-//}
-//
-//void SSD1306_DrawRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, SSD1306_COLOR_t c) {
-//	/* Check input parameters */
-//	if (
-//		x >= SSD1306_WIDTH ||
-//		y >= SSD1306_HEIGHT
-//	) {
-//		/* Return error */
-//		return;
-//	}
-//
-//	/* Check width and height */
-//	if ((x + w) >= SSD1306_WIDTH) {
-//		w = SSD1306_WIDTH - x;
-//	}
-//	if ((y + h) >= SSD1306_HEIGHT) {
-//		h = SSD1306_HEIGHT - y;
-//	}
-//
-//	/* Draw 4 lines */
-//	SSD1306_DrawLine(x, y, x + w, y, c);         /* Top line */
-//	SSD1306_DrawLine(x, y + h, x + w, y + h, c); /* Bottom line */
-//	SSD1306_DrawLine(x, y, x, y + h, c);         /* Left line */
-//	SSD1306_DrawLine(x + w, y, x + w, y + h, c); /* Right line */
-//}
-//
-//void SSD1306_DrawFilledRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h, SSD1306_COLOR_t c) {
-//	uint8_t i;
-//
-//	/* Check input parameters */
-//	if (
-//		x >= SSD1306_WIDTH ||
-//		y >= SSD1306_HEIGHT
-//	) {
-//		/* Return error */
-//		return;
-//	}
-//
-//	/* Check width and height */
-//	if ((x + w) >= SSD1306_WIDTH) {
-//		w = SSD1306_WIDTH - x;
-//	}
-//	if ((y + h) >= SSD1306_HEIGHT) {
-//		h = SSD1306_HEIGHT - y;
-//	}
-//
-//	/* Draw lines */
-//	for (i = 0; i <= h; i++) {
-//		/* Draw lines */
-//		SSD1306_DrawLine(x, y + i, x + w, y + i, c);
-//	}
-//}
-//
-//void SSD1306_DrawTriangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, SSD1306_COLOR_t color) {
-//	/* Draw lines */
-//	SSD1306_DrawLine(x1, y1, x2, y2, color);
-//	SSD1306_DrawLine(x2, y2, x3, y3, color);
-//	SSD1306_DrawLine(x3, y3, x1, y1, color);
-//}
-//
-//
-//void SSD1306_DrawFilledTriangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, SSD1306_COLOR_t color) {
-//	int16_t deltax = 0, deltay = 0, x = 0, y = 0, xinc1 = 0, xinc2 = 0,
-//	yinc1 = 0, yinc2 = 0, den = 0, num = 0, numadd = 0, numpixels = 0,
-//	curpixel = 0;
-//
-//	deltax = ABS(x2 - x1);
-//	deltay = ABS(y2 - y1);
-//	x = x1;
-//	y = y1;
-//
-//	if (x2 >= x1) {
-//		xinc1 = 1;
-//		xinc2 = 1;
-//	} else {
-//		xinc1 = -1;
-//		xinc2 = -1;
-//	}
-//
-//	if (y2 >= y1) {
-//		yinc1 = 1;
-//		yinc2 = 1;
-//	} else {
-//		yinc1 = -1;
-//		yinc2 = -1;
-//	}
-//
-//	if (deltax >= deltay){
-//		xinc1 = 0;
-//		yinc2 = 0;
-//		den = deltax;
-//		num = deltax / 2;
-//		numadd = deltay;
-//		numpixels = deltax;
-//	} else {
-//		xinc2 = 0;
-//		yinc1 = 0;
-//		den = deltay;
-//		num = deltay / 2;
-//		numadd = deltax;
-//		numpixels = deltay;
-//	}
-//
-//	for (curpixel = 0; curpixel <= numpixels; curpixel++) {
-//		SSD1306_DrawLine(x, y, x3, y3, color);
-//
-//		num += numadd;
-//		if (num >= den) {
-//			num -= den;
-//			x += xinc1;
-//			y += yinc1;
-//		}
-//		x += xinc2;
-//		y += yinc2;
-//	}
-//}
-//
-//void SSD1306_DrawCircle(int16_t x0, int16_t y0, int16_t r, SSD1306_COLOR_t c) {
-//	int16_t f = 1 - r;
-//	int16_t ddF_x = 1;
-//	int16_t ddF_y = -2 * r;
-//	int16_t x = 0;
-//	int16_t y = r;
-//
-//    SSD1306_DrawPixel(x0, y0 + r, c);
-//    SSD1306_DrawPixel(x0, y0 - r, c);
-//    SSD1306_DrawPixel(x0 + r, y0, c);
-//    SSD1306_DrawPixel(x0 - r, y0, c);
-//
-//    while (x < y) {
-//        if (f >= 0) {
-//            y--;
-//            ddF_y += 2;
-//            f += ddF_y;
-//        }
-//        x++;
-//        ddF_x += 2;
-//        f += ddF_x;
-//
-//        SSD1306_DrawPixel(x0 + x, y0 + y, c);
-//        SSD1306_DrawPixel(x0 - x, y0 + y, c);
-//        SSD1306_DrawPixel(x0 + x, y0 - y, c);
-//        SSD1306_DrawPixel(x0 - x, y0 - y, c);
-//
-//        SSD1306_DrawPixel(x0 + y, y0 + x, c);
-//        SSD1306_DrawPixel(x0 - y, y0 + x, c);
-//        SSD1306_DrawPixel(x0 + y, y0 - x, c);
-//        SSD1306_DrawPixel(x0 - y, y0 - x, c);
-//    }
-//}
-//
-//void SSD1306_DrawFilledCircle(int16_t x0, int16_t y0, int16_t r, SSD1306_COLOR_t c) {
-//	int16_t f = 1 - r;
-//	int16_t ddF_x = 1;
-//	int16_t ddF_y = -2 * r;
-//	int16_t x = 0;
-//	int16_t y = r;
-//
-//    SSD1306_DrawPixel(x0, y0 + r, c);
-//    SSD1306_DrawPixel(x0, y0 - r, c);
-//    SSD1306_DrawPixel(x0 + r, y0, c);
-//    SSD1306_DrawPixel(x0 - r, y0, c);
-//    SSD1306_DrawLine(x0 - r, y0, x0 + r, y0, c);
-//
-//    while (x < y) {
-//        if (f >= 0) {
-//            y--;
-//            ddF_y += 2;
-//            f += ddF_y;
-//        }
-//        x++;
-//        ddF_x += 2;
-//        f += ddF_x;
-//
-//        SSD1306_DrawLine(x0 - x, y0 + y, x0 + x, y0 + y, c);
-//        SSD1306_DrawLine(x0 + x, y0 - y, x0 - x, y0 - y, c);
-//
-//        SSD1306_DrawLine(x0 + y, y0 + x, x0 - y, y0 + x, c);
-//        SSD1306_DrawLine(x0 + y, y0 - x, x0 - y, y0 - x, c);
-//    }
-//}
+void SSD1306_drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
+	SSD1306_color_t color) {
+
+	int16_t dx, dy, sx, sy, err, e2, i, tmp;
+
+	if (x0 >= SSD1306_WIDTH) {
+		x0 = SSD1306_WIDTH - 1;
+	}
+
+	if (x1 >= SSD1306_WIDTH) {
+		x1 = SSD1306_WIDTH - 1;
+	}
+
+	if (y0 >= SSD1306_HEIGHT) {
+		y0 = SSD1306_HEIGHT - 1;
+	}
+
+	if (y1 >= SSD1306_HEIGHT) {
+		y1 = SSD1306_HEIGHT - 1;
+	}
+
+	dx = (x0 < x1) ? (x1 - x0) : (x0 - x1);
+	dy = (y0 < y1) ? (y1 - y0) : (y0 - y1);
+	sx = (x0 < x1) ? 1 : -1;
+	sy = (y0 < y1) ? 1 : -1;
+
+	// Shifting by 1 means diving by two.
+	err = ((dx > dy) ? dx : -dy) >> 1;
+
+	if (dx == 0) {
+		if (y1 < y0) {
+			tmp = y1;
+			y1 = y0;
+			y0 = tmp;
+		}
+
+		if (x1 < x0) {
+			tmp = x1;
+			x1 = x0;
+			x0 = tmp;
+		}
+
+		/* Vertical line */
+		for (i = y0; i <= y1; i++) {
+			SSD1306_drawPixel(x0, i, color);
+		}
+
+		/* Return from function */
+		return;
+	}
+
+	if (dy == 0) {
+		if (y1 < y0) {
+			tmp = y1;
+			y1 = y0;
+			y0 = tmp;
+		}
+
+		if (x1 < x0) {
+			tmp = x1;
+			x1 = x0;
+			x0 = tmp;
+		}
+
+		/* Horizontal line */
+		for (i = x0; i <= x1; i++) {
+			SSD1306_drawPixel(i, y0, color);
+		}
+
+		/* Return from function */
+		return;
+	}
+
+	while (1) {
+		SSD1306_drawPixel(x0, y0, color);
+		if (x0 == x1 && y0 == y1) {
+			break;
+		}
+		e2 = err;
+		if (e2 > -dx) {
+			err -= dy;
+			x0 += sx;
+		}
+		if (e2 < dy) {
+			err += dx;
+			y0 += sy;
+		}
+	}
+
+	return;
+}
 
 
-void SSD1306_ON(void) {
+void SSD1306_DrawRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
+	SSD1306_color_t color) {
+
+	if (x >= SSD1306_WIDTH || y >= SSD1306_HEIGHT) {
+		return;
+	}
+
+	/* Check width and height */
+	if ((x + w) >= SSD1306_WIDTH) {
+		w = SSD1306_WIDTH - x;
+	}
+	if ((y + h) >= SSD1306_HEIGHT) {
+		h = SSD1306_HEIGHT - y;
+	}
+
+	// Draws 4 lines.
+	SSD1306_drawLine(x, y, x + w, y, color);         /* Top line */
+	SSD1306_drawLine(x, y + h, x + w, y + h, color); /* Bottom line */
+	SSD1306_drawLine(x, y, x, y + h, color);         /* Left line */
+	SSD1306_drawLine(x + w, y, x + w, y + h, color); /* Right line */
+
+	return;
+}
+
+
+void SSD1306_drawFilledRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
+	SSD1306_color_t color) {
+
+	/* Check input parameters */
+	if (x >= SSD1306_WIDTH || y >= SSD1306_HEIGHT) {
+		return;
+	}
+
+	if ((x + w) >= SSD1306_WIDTH) {
+		w = SSD1306_WIDTH - x;
+	}
+
+	if ((y + h) >= SSD1306_HEIGHT) {
+		h = SSD1306_HEIGHT - y;
+	}
+
+	// Draws rectangle lines.
+	for (uint8_t i = 0; i <= h; i++) {
+		SSD1306_drawLine(x, y + i, x + w, y + i, color);
+	}
+
+	return;
+}
+
+
+void SSD1306_drawTriangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
+	uint16_t x3, uint16_t y3, SSD1306_color_t color) {
+
+	SSD1306_drawLine(x1, y1, x2, y2, color);
+	SSD1306_drawLine(x2, y2, x3, y3, color);
+	SSD1306_drawLine(x3, y3, x1, y1, color);
+
+	return;
+}
+
+
+void SSD1306_drawFilledTriangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
+	uint16_t x3, uint16_t y3, SSD1306_color_t color) {
+
+	int16_t deltax = 0, deltay = 0, x = 0, y = 0, xinc1 = 0, xinc2 = 0,
+	yinc1 = 0, yinc2 = 0, den = 0, num = 0, numadd = 0, numpixels = 0,
+	curpixel = 0;
+
+	deltax = ABS(x2 - x1);
+	deltay = ABS(y2 - y1);
+	x = x1;
+	y = y1;
+
+	if (x2 >= x1) {
+		xinc1 = 1;
+		xinc2 = 1;
+	} else {
+		xinc1 = -1;
+		xinc2 = -1;
+	}
+
+	if (y2 >= y1) {
+		yinc1 = 1;
+		yinc2 = 1;
+	} else {
+		yinc1 = -1;
+		yinc2 = -1;
+	}
+
+	if (deltax >= deltay){
+		xinc1 = 0;
+		yinc2 = 0;
+		den = deltax;
+		num = deltax / 2;
+		numadd = deltay;
+		numpixels = deltax;
+	} else {
+		xinc2 = 0;
+		yinc1 = 0;
+		den = deltay;
+		num = deltay / 2;
+		numadd = deltax;
+		numpixels = deltay;
+	}
+
+	for (curpixel = 0; curpixel <= numpixels; curpixel++) {
+		SSD1306_drawLine(x, y, x3, y3, color);
+
+		num += numadd;
+		if (num >= den) {
+			num -= den;
+			x += xinc1;
+			y += yinc1;
+		}
+		x += xinc2;
+		y += yinc2;
+	}
+
+	return;
+}
+
+
+void SSD1306_DrawCircle(int16_t x0, int16_t y0, int16_t r, SSD1306_color_t color) {
+	int16_t f = 1 - r;
+	int16_t ddF_x = 1;
+	int16_t ddF_y = -2 * r;
+	int16_t x = 0;
+	int16_t y = r;
+
+    SSD1306_drawPixel(x0, y0 + r, color);
+    SSD1306_drawPixel(x0, y0 - r, color);
+    SSD1306_drawPixel(x0 + r, y0, color);
+    SSD1306_drawPixel(x0 - r, y0, color);
+
+    while (x < y) {
+        if (f >= 0) {
+            y--;
+            ddF_y += 2;
+            f += ddF_y;
+        }
+        x++;
+        ddF_x += 2;
+        f += ddF_x;
+
+        SSD1306_drawPixel(x0 + x, y0 + y, color);
+        SSD1306_drawPixel(x0 - x, y0 + y, color);
+        SSD1306_drawPixel(x0 + x, y0 - y, color);
+        SSD1306_drawPixel(x0 - x, y0 - y, color);
+
+        SSD1306_drawPixel(x0 + y, y0 + x, color);
+        SSD1306_drawPixel(x0 - y, y0 + x, color);
+        SSD1306_drawPixel(x0 + y, y0 - x, color);
+        SSD1306_drawPixel(x0 - y, y0 - x, color);
+    }
+
+    return;
+}
+
+
+void SSD1306_DrawFilledCircle(int16_t x0, int16_t y0, int16_t r,
+	SSD1306_color_t color) {
+
+	int16_t f = 1 - r;
+	int16_t ddF_x = 1;
+	int16_t ddF_y = -2 * r;
+	int16_t x = 0;
+	int16_t y = r;
+
+    SSD1306_drawPixel(x0, y0 + r, color);
+    SSD1306_drawPixel(x0, y0 - r, color);
+    SSD1306_drawPixel(x0 + r, y0, color);
+    SSD1306_drawPixel(x0 - r, y0, color);
+    SSD1306_drawLine(x0 - r, y0, x0 + r, y0, color);
+
+    while (x < y) {
+        if (f >= 0) {
+            y--;
+            ddF_y += 2;
+            f += ddF_y;
+        }
+        x++;
+        ddF_x += 2;
+        f += ddF_x;
+
+        SSD1306_drawLine(x0 - x, y0 + y, x0 + x, y0 + y, color);
+        SSD1306_drawLine(x0 + x, y0 - y, x0 - x, y0 - y, color);
+
+        SSD1306_drawLine(x0 + y, y0 + x, x0 - y, y0 + x, color);
+        SSD1306_drawLine(x0 + y, y0 - x, x0 - y, y0 - x, color);
+    }
+
+    return;
+}
+
+
+void SSD1306_lcdOn(void) {
 	SSD1306_WRITECOMMAND(0x8D);  
 	SSD1306_WRITECOMMAND(0x14);  
-	SSD1306_WRITECOMMAND(0xAF);  
+	SSD1306_WRITECOMMAND(0xAF);
+
+	return;
 }
-void SSD1306_OFF(void) {
+
+
+void SSD1306_lcdOff(void) {
 	SSD1306_WRITECOMMAND(0x8D);  
 	SSD1306_WRITECOMMAND(0x10);
-	SSD1306_WRITECOMMAND(0xAE);  
+	SSD1306_WRITECOMMAND(0xAE);
+
+	return;
 }
 
 
@@ -620,13 +670,25 @@ void SSD1306_OFF(void) {
 // I2C COMMUNICATION FUNCTIONS.
 ///////////////////////////////////////////////////////////////////////////////
 
-void SSD1306_I2C_WriteMulti(uint8_t addr, uint8_t reg, uint8_t* data, uint16_t count) {
-	uint8_t dt[256];
-	dt[0] = reg;
+/**
+ * @brief Temporary buffer to store data to be transmitted to the LCD.
+ */
+static uint8_t data_tmp[SSD1306_I2C_DATATMP_SIZE];
 
-	memcpy(dt+1, data, count);
 
-	HAL_I2C_Master_Transmit(SSD1306_i2c_ptr, addr, dt, count+1,
+void SSD1306_I2C_WriteMulti(uint8_t addr, uint8_t reg, uint8_t* data,
+	uint16_t count) {
+
+	// Avoids buffer overflow.
+	if (count > SSD1306_I2C_DATATMP_SIZE) {
+		return;
+	}
+
+	data_tmp[0] = reg;
+
+	memcpy(data_tmp + 1, data, count);
+
+	HAL_I2C_Master_Transmit(SSD1306.i2c_ptr, addr, data_tmp, count + 1,
 		SSD1306_I2C_TIMEOUT);
 
 	return;
@@ -634,10 +696,11 @@ void SSD1306_I2C_WriteMulti(uint8_t addr, uint8_t reg, uint8_t* data, uint16_t c
 
 
 void SSD1306_I2C_Write(uint8_t addr, uint8_t reg, uint8_t data) {
-	uint8_t dt[2];
-	dt[0] = reg;
-	dt[1] = data;
-	HAL_I2C_Master_Transmit(SSD1306_i2c_ptr, addr, dt, 2, SSD1306_I2C_TIMEOUT);
+	data_tmp[0] = reg;
+	data_tmp[1] = data;
+
+	HAL_I2C_Master_Transmit(SSD1306.i2c_ptr, addr, data_tmp, 2,
+		SSD1306_I2C_TIMEOUT);
 
 	return;
 }
