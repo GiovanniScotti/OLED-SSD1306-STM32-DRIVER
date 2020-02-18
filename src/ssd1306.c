@@ -1,40 +1,41 @@
 /**
- * @file   ssd1306.h
- * @author Giovanni Scotti
- * @brief  SSD1306 driver module for STM32f10x and STM32F4xx. The original
- *         version has been improved with various bug fixes and code has been
- *         restructured paying attention to maximize the portability on
- *         resource-constrained devices.
- * 		   This SSD1306 LCD driver uses I2C for communication. Library functions
- * 		   allow to draw lines, rectangles and circles. It is also possible
- * 		   to draw text and single characters only.
+ * @file   ssd1306.c
+ * @brief  SSD1306 driver module for STM32f10x and STM32F4xx.
  *
- * @brief  LIBRARY USAGE:
- * 		   First of all, find the "driver settings" section in the ssd1306.h
- * 		   file and uncomment the correct define to make the library compatible
- * 		   with your target STM32 microcontroller.
- *  	   Before drawing on the screen, remember to call the @ref SSD1306_init
- *         initialization function passing a pointer to a valid i2c peripheral.
+ * 		   The original version has been improved with various bug fixes and
+ * 		   code has been restructured paying attention to maximize the
+ * 		   portability on resource-constrained devices. This SSD1306 LCD driver
+ * 		   uses I2C for communication. Library functions allow to draw lines,
+ * 		   rectangles and circles. It is also possible to draw text and single
+ * 		   characters only.
  *
- * @attention
- * Original author: Tilen Majerle <tilen@majerle.eu>
- * Modification for STM32f10x: Alexander Lutsai <s.lyra@ya.ru>
+ *         <b>LIBRARY USAGE:</b>
+ *         <ol>
+ *         	 <li> Find the "driver settings" section in the ssd1306.h
+ * 		          file and uncomment the correct define to make the library
+ * 		          compatible with your target STM32 microcontroller. </li>
+ * 		     <li> Before drawing on the screen, remember to call the
+ * 		          @ref SSD1306_init initialization function passing a pointer
+ * 		          to a valid i2c peripheral. </li>
+ * 		   </ol>
  *
- * ----------------------------------------------------------------------
- *
+ * @copyright
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  any later version.
- *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *  GNU General Public License for more details.
- *
  *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- * ----------------------------------------------------------------------
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author Giovanni Scotti
+ *
+ * @attention
+ * Original author: Tilen Majerle <tilen@majerle.eu>
+ * Modification for STM32f10x: Alexander Lutsai <s.lyra@ya.ru>
  */
 
 #include "ssd1306.h"
@@ -120,21 +121,25 @@ SSD1306_status_t SSD1306_init(I2C_HandleTypeDef *i2c_ptr) {
 	SSD1306_clear();
 	SSD1306.initialized = 1;
 
-	return SSD1306_OK;
+	return LCD_OK;
 }
 
 
-void SSD1306_clear(void) {
+SSD1306_status_t SSD1306_clear(void) {
+	if (!SSD1306.initialized) {
+		return NO_INIT;
+	}
+
 	SSD1306_fill(SSD1306_COLOR_BLACK);
 	SSD1306_updateScreen();
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_invertDisplay(uint8_t is_inverted) {
+SSD1306_status_t SSD1306_invertDisplay(uint8_t is_inverted) {
 	if (!SSD1306.initialized) {
-		return;
+		return NO_INIT;
 	}
 
 	if (is_inverted)
@@ -142,13 +147,13 @@ void SSD1306_invertDisplay(uint8_t is_inverted) {
 	else
 		SSD1306_WRITECOMMAND(SSD1306_NORMALDISPLAY);
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_updateScreen(void) {
+SSD1306_status_t SSD1306_updateScreen(void) {
 	if (!SSD1306.initialized) {
-		return;
+		return NO_INIT;
 	}
 
 	for (uint8_t m = 0; m < 8; m++) {
@@ -160,11 +165,15 @@ void SSD1306_updateScreen(void) {
 			&SSD1306_Buffer[SSD1306_WIDTH * m], SSD1306_WIDTH);
 	}
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_toggleInvert(void) {
+SSD1306_status_t SSD1306_toggleInvert(void) {
+	if (!SSD1306.initialized) {
+		return NO_INIT;
+	}
+
 	for (uint32_t i = 0; i < sizeof(SSD1306_Buffer); i++) {
 		SSD1306_Buffer[i] = ~SSD1306_Buffer[i];
 	}
@@ -172,96 +181,150 @@ void SSD1306_toggleInvert(void) {
 	// Updates internal status.
 	SSD1306.inverted = !SSD1306.inverted;
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_scrollRight(uint8_t start_row, uint8_t end_row) {
-	// TODO: check input.
+SSD1306_status_t SSD1306_scrollRight(uint8_t start_page, uint8_t end_page) {
+	if (start_page >= SSD1306_MAX_PAGE_NUM ||
+		end_page >= SSD1306_MAX_PAGE_NUM) {
 
+		return INVALID_PARAMS;
+	}
+
+	if (start_page > end_page) {
+		return INVALID_PARAMS;
+	}
+
+	// Right horizontal scroll.
 	SSD1306_WRITECOMMAND(SSD1306_RIGHT_HORIZONTAL_SCROLL);
-	SSD1306_WRITECOMMAND(0x00);      // send dummy
-	SSD1306_WRITECOMMAND(start_row); // start page address
-	SSD1306_WRITECOMMAND(0X00);      // time interval 5 frames
-	SSD1306_WRITECOMMAND(end_row);   // end page address
+	SSD1306_WRITECOMMAND(0x00);       // Dummy byte.
+	SSD1306_WRITECOMMAND(start_page); // Start page address.
+
+	// Time interval between each scroll step as 5 frames.
 	SSD1306_WRITECOMMAND(0X00);
-	SSD1306_WRITECOMMAND(0XFF);
-	SSD1306_WRITECOMMAND(SSD1306_ACTIVATE_SCROLL); // start scroll
-	return;
+
+	SSD1306_WRITECOMMAND(end_page);   // End page address.
+	SSD1306_WRITECOMMAND(0X00);
+	SSD1306_WRITECOMMAND(0xFF);		  // Scroll offset for continuous movement.
+	SSD1306_WRITECOMMAND(SSD1306_ACTIVATE_SCROLL); // Start scrolling.
+
+	return LCD_OK;
 }
 
 
-void SSD1306_scrollLeft(uint8_t start_row, uint8_t end_row) {
-	// TODO: check input.
+SSD1306_status_t SSD1306_scrollLeft(uint8_t start_page, uint8_t end_page) {
+	if (start_page >= SSD1306_MAX_PAGE_NUM ||
+		end_page >= SSD1306_MAX_PAGE_NUM) {
 
-	SSD1306_WRITECOMMAND(SSD1306_LEFT_HORIZONTAL_SCROLL);  // send 0x26
-	SSD1306_WRITECOMMAND(0x00);  // send dummy
-	SSD1306_WRITECOMMAND(start_row);  // start page address
-	SSD1306_WRITECOMMAND(0X00);  // time interval 5 frames
-	SSD1306_WRITECOMMAND(end_row);  // end page address
+		return INVALID_PARAMS;
+	}
+
+	if (start_page > end_page) {
+		return INVALID_PARAMS;
+	}
+
+	// Left horizontal scroll.
+	SSD1306_WRITECOMMAND(SSD1306_LEFT_HORIZONTAL_SCROLL);
+	SSD1306_WRITECOMMAND(0x00);  	  // Dummy byte.
+	SSD1306_WRITECOMMAND(start_page); // Start page address.
+
+	// Time interval between each scroll step as 5 frames.
+	SSD1306_WRITECOMMAND(0X00);
+
+	SSD1306_WRITECOMMAND(end_page);  // End page address.
 	SSD1306_WRITECOMMAND(0X00);
 	SSD1306_WRITECOMMAND(0XFF);
-	SSD1306_WRITECOMMAND(SSD1306_ACTIVATE_SCROLL); // start scroll
-	return;
+	SSD1306_WRITECOMMAND(SSD1306_ACTIVATE_SCROLL); // Start scrolling.
+
+	return LCD_OK;
 }
 
 
-void SSD1306_scrollDiagRight(uint8_t start_row, uint8_t end_row) {
-	// TODO: check input.
+SSD1306_status_t SSD1306_scrollDiagRight(uint8_t start_page, uint8_t end_page) {
+	if (start_page >= SSD1306_MAX_PAGE_NUM ||
+		end_page >= SSD1306_MAX_PAGE_NUM) {
 
-	SSD1306_WRITECOMMAND(SSD1306_SET_VERTICAL_SCROLL_AREA);  // sect the area
-	SSD1306_WRITECOMMAND(0x00);   // write dummy
+		return INVALID_PARAMS;
+	}
+
+	if (start_page > end_page) {
+		return INVALID_PARAMS;
+	}
+
+	SSD1306_WRITECOMMAND(SSD1306_SET_VERTICAL_SCROLL_AREA);
+	SSD1306_WRITECOMMAND(0x00); 					// Dummy byte.
 	SSD1306_WRITECOMMAND(SSD1306_HEIGHT);
 
 	SSD1306_WRITECOMMAND(SSD1306_VERTICAL_AND_RIGHT_HORIZONTAL_SCROLL);
 	SSD1306_WRITECOMMAND(0x00);
-	SSD1306_WRITECOMMAND(start_row);
+	SSD1306_WRITECOMMAND(start_page);				// Start page address.
 	SSD1306_WRITECOMMAND(0X00);
-	SSD1306_WRITECOMMAND(end_row);
+	SSD1306_WRITECOMMAND(end_page);					// End page address.
 	SSD1306_WRITECOMMAND(0x01);
 	SSD1306_WRITECOMMAND(SSD1306_ACTIVATE_SCROLL);
-	return;
+
+	return LCD_OK;
 }
 
 
-void SSD1306_scrollDiagLeft(uint8_t start_row, uint8_t end_row) {
-	// TODO: check input.
+SSD1306_status_t SSD1306_scrollDiagLeft(uint8_t start_page, uint8_t end_page) {
+	if (start_page >= SSD1306_MAX_PAGE_NUM ||
+		end_page >= SSD1306_MAX_PAGE_NUM) {
 
-	SSD1306_WRITECOMMAND(SSD1306_SET_VERTICAL_SCROLL_AREA);  // sect the area
-	SSD1306_WRITECOMMAND(0x00);   // write dummy
+		return INVALID_PARAMS;
+	}
+
+	if (start_page > end_page) {
+		return INVALID_PARAMS;
+	}
+
+	SSD1306_WRITECOMMAND(SSD1306_SET_VERTICAL_SCROLL_AREA);
+	SSD1306_WRITECOMMAND(0x00);						// Dummy byte.
 	SSD1306_WRITECOMMAND(SSD1306_HEIGHT);
 
 	SSD1306_WRITECOMMAND(SSD1306_VERTICAL_AND_LEFT_HORIZONTAL_SCROLL);
 	SSD1306_WRITECOMMAND(0x00);
-	SSD1306_WRITECOMMAND(start_row);
+	SSD1306_WRITECOMMAND(start_page);				// Start page address.
 	SSD1306_WRITECOMMAND(0X00);
-    SSD1306_WRITECOMMAND(end_row);
+    SSD1306_WRITECOMMAND(end_page);					// End page address.
     SSD1306_WRITECOMMAND(0x01);
     SSD1306_WRITECOMMAND(SSD1306_ACTIVATE_SCROLL);
-    return;
+
+    return LCD_OK;
 }
 
 
-void SSD1306_stopScroll(void) {
+SSD1306_status_t SSD1306_stopScroll(void) {
 	SSD1306_WRITECOMMAND(SSD1306_DEACTIVATE_SCROLL);
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_fill(SSD1306_color_t color) {
-	if (color == SSD1306_COLOR_BLACK)
-		memset(SSD1306_Buffer, 0x00, sizeof(SSD1306_Buffer));
-	else if (color == SSD1306_COLOR_WHITE)
-		memset(SSD1306_Buffer, 0xFF, sizeof(SSD1306_Buffer));
+SSD1306_status_t SSD1306_fill(SSD1306_color_t color) {
+	if (!SSD1306.initialized) {
+		return NO_INIT;
+	}
 
-	return;
+	switch (color) {
+		case SSD1306_COLOR_BLACK:
+			memset(SSD1306_Buffer, 0x00, sizeof(SSD1306_Buffer));
+			break;
+		case SSD1306_COLOR_WHITE:
+			memset(SSD1306_Buffer, 0xFF, sizeof(SSD1306_Buffer));
+			break;
+		default:
+			return INVALID_PARAMS;
+	}
+
+	return LCD_OK;
 }
 
 
-void SSD1306_drawPixel(uint16_t x, uint16_t y, SSD1306_color_t color) {
+SSD1306_status_t SSD1306_drawPixel(uint16_t x, uint16_t y, SSD1306_color_t color) {
 	if (x >= SSD1306_WIDTH || y >= SSD1306_HEIGHT) {
-		return;
+		return INVALID_PARAMS;
 	}
 
 	// Checks if pixels are inverted.
@@ -271,20 +334,25 @@ void SSD1306_drawPixel(uint16_t x, uint16_t y, SSD1306_color_t color) {
 
 	// Sets color. Shifting right by 3 means dividing by 8. Bitwise ANDing by
 	// 0x7 means getting the remainder of a division by 8.
-	if (color == SSD1306_COLOR_WHITE) {
-		SSD1306_Buffer[x + (y >> 3) * SSD1306_WIDTH] |= 1 << (y & 0x07);
-	} else {
-		SSD1306_Buffer[x + (y >> 3) * SSD1306_WIDTH] &= ~(1 << (y & 0x07));
+	switch (color) {
+		case SSD1306_COLOR_WHITE:
+			SSD1306_Buffer[x + (y >> 3) * SSD1306_WIDTH] |= 1 << (y & 0x07);
+			break;
+		case SSD1306_COLOR_BLACK:
+			SSD1306_Buffer[x + (y >> 3) * SSD1306_WIDTH] &= ~(1 << (y & 0x07));
+			break;
+		default:
+			return INVALID_PARAMS;
 	}
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_drawBitmap(int16_t x, int16_t y, const unsigned char* bitmap,
-	int16_t w, int16_t h, SSD1306_color_t color) {
+SSD1306_status_t SSD1306_drawBitmap(int16_t x, int16_t y,
+	const unsigned char* bitmap, int16_t w, int16_t h, SSD1306_color_t color) {
 
-    int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
+    int16_t byteWidth = (w + 7) >> 3; // Bitmap scanline pad = whole byte
     uint8_t byte = 0;
 
     for(int16_t j=0; j<h; j++, y++) {
@@ -299,39 +367,39 @@ void SSD1306_drawBitmap(int16_t x, int16_t y, const unsigned char* bitmap,
         }
     }
 
-    return;
+    return LCD_OK;
 }
 
 
-void SSD1306_gotoXY(uint16_t x, uint16_t y) {
+SSD1306_status_t SSD1306_gotoXY(uint16_t x, uint16_t y) {
 	if (x >= SSD1306_WIDTH || y >= SSD1306_HEIGHT) {
-		return;
+		return INVALID_PARAMS;
 	}
 
 	// Sets write pointers.
 	SSD1306.currentX = x;
 	SSD1306.currentY = y;
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_putc(char ch, FontDef_t* font, SSD1306_color_t color) {
+SSD1306_status_t SSD1306_putc(char ch, FontDef_t* font, SSD1306_color_t color) {
 	uint16_t b;
 	
 	// Check available space on the visible LCD area.
-	if (SSD1306_WIDTH <= (SSD1306.currentX + font->FontWidth) ||
-		SSD1306_HEIGHT <= (SSD1306.currentY + font->FontHeight)) {
+	if (SSD1306_WIDTH <= (SSD1306.currentX + font->fontWidth) ||
+		SSD1306_HEIGHT <= (SSD1306.currentY + font->fontHeight)) {
 
-		return;
+		return INVALID_PARAMS;
 	}
 	
-	for (uint8_t i = 0; i < font->FontHeight; i++) {
+	for (uint8_t i = 0; i < font->fontHeight; i++) {
 		// Since the first available character of the ASCII table is 'space'
 		// (32d), subtracts it from the given char to compute the array index.
-		b = font->data[(ch - 32) * font->FontHeight + i];
+		b = font->data[(ch - 32) * font->fontHeight + i];
 
-		for (uint8_t j = 0; j < font->FontWidth; j++) {
+		for (uint8_t j = 0; j < font->fontWidth; j++) {
 			if ((b << j) & 0x8000) {
 				SSD1306_drawPixel(SSD1306.currentX + j, (SSD1306.currentY + i),
 					color);
@@ -343,25 +411,25 @@ void SSD1306_putc(char ch, FontDef_t* font, SSD1306_color_t color) {
 	}
 	
 	// Updates the X pointer.
-	SSD1306.currentX += font->FontWidth;
+	SSD1306.currentX += font->fontWidth;
 	
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_puts(char* str, FontDef_t* Font, SSD1306_color_t color) {
+SSD1306_status_t SSD1306_puts(char* str, FontDef_t* font, SSD1306_color_t color) {
 	while (*str) {
 		// Write character by character.
-		SSD1306_putc(*str, Font, color);
+		SSD1306_putc(*str, font, color);
 		str++;
 	}
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
-	SSD1306_color_t color) {
+SSD1306_status_t SSD1306_drawLine(uint16_t x0, uint16_t y0, uint16_t x1,
+	uint16_t y1, SSD1306_color_t color) {
 
 	int16_t dx, dy, sx, sy, err, e2, i, tmp;
 
@@ -389,6 +457,7 @@ void SSD1306_drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
 	// Shifting by 1 means diving by two.
 	err = ((dx > dy) ? dx : -dy) >> 1;
 
+	// Draws vertical line.
 	if (dx == 0) {
 		if (y1 < y0) {
 			tmp = y1;
@@ -408,9 +477,10 @@ void SSD1306_drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
 		}
 
 		/* Return from function */
-		return;
+		return LCD_OK;
 	}
 
+	// Draws horizontal line.
 	if (dy == 0) {
 		if (y1 < y0) {
 			tmp = y1;
@@ -430,7 +500,7 @@ void SSD1306_drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
 		}
 
 		/* Return from function */
-		return;
+		return LCD_OK;
 	}
 
 	while (1) {
@@ -449,15 +519,15 @@ void SSD1306_drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1,
 		}
 	}
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_DrawRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
-	SSD1306_color_t color) {
+SSD1306_status_t SSD1306_drawRectangle(uint16_t x, uint16_t y, uint16_t w,
+	uint16_t h, SSD1306_color_t color) {
 
 	if (x >= SSD1306_WIDTH || y >= SSD1306_HEIGHT) {
-		return;
+		return INVALID_PARAMS;
 	}
 
 	/* Check width and height */
@@ -474,16 +544,16 @@ void SSD1306_DrawRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
 	SSD1306_drawLine(x, y, x, y + h, color);         /* Left line */
 	SSD1306_drawLine(x + w, y, x + w, y + h, color); /* Right line */
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_drawFilledRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
-	SSD1306_color_t color) {
+SSD1306_status_t SSD1306_drawFilledRectangle(uint16_t x, uint16_t y, uint16_t w,
+	uint16_t h, SSD1306_color_t color) {
 
 	/* Check input parameters */
 	if (x >= SSD1306_WIDTH || y >= SSD1306_HEIGHT) {
-		return;
+		return INVALID_PARAMS;
 	}
 
 	if ((x + w) >= SSD1306_WIDTH) {
@@ -499,23 +569,23 @@ void SSD1306_drawFilledRectangle(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
 		SSD1306_drawLine(x, y + i, x + w, y + i, color);
 	}
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_drawTriangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
-	uint16_t x3, uint16_t y3, SSD1306_color_t color) {
+SSD1306_status_t SSD1306_drawTriangle(uint16_t x1, uint16_t y1, uint16_t x2,
+	uint16_t y2, uint16_t x3, uint16_t y3, SSD1306_color_t color) {
 
 	SSD1306_drawLine(x1, y1, x2, y2, color);
 	SSD1306_drawLine(x2, y2, x3, y3, color);
 	SSD1306_drawLine(x3, y3, x1, y1, color);
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_drawFilledTriangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,
-	uint16_t x3, uint16_t y3, SSD1306_color_t color) {
+SSD1306_status_t SSD1306_drawFilledTriangle(uint16_t x1, uint16_t y1,
+	uint16_t x2, uint16_t y2, uint16_t x3, uint16_t y3, SSD1306_color_t color) {
 
 	int16_t deltax = 0, deltay = 0, x = 0, y = 0, xinc1 = 0, xinc2 = 0,
 	yinc1 = 0, yinc2 = 0, den = 0, num = 0, numadd = 0, numpixels = 0,
@@ -571,11 +641,13 @@ void SSD1306_drawFilledTriangle(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t 
 		y += yinc2;
 	}
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_DrawCircle(int16_t x0, int16_t y0, int16_t r, SSD1306_color_t color) {
+SSD1306_status_t SSD1306_drawCircle(int16_t x0, int16_t y0, int16_t r,
+	SSD1306_color_t color) {
+
 	int16_t f = 1 - r;
 	int16_t ddF_x = 1;
 	int16_t ddF_y = -2 * r;
@@ -608,11 +680,11 @@ void SSD1306_DrawCircle(int16_t x0, int16_t y0, int16_t r, SSD1306_color_t color
         SSD1306_drawPixel(x0 - y, y0 - x, color);
     }
 
-    return;
+    return LCD_OK;
 }
 
 
-void SSD1306_DrawFilledCircle(int16_t x0, int16_t y0, int16_t r,
+SSD1306_status_t SSD1306_drawFilledCircle(int16_t x0, int16_t y0, int16_t r,
 	SSD1306_color_t color) {
 
 	int16_t f = 1 - r;
@@ -644,25 +716,25 @@ void SSD1306_DrawFilledCircle(int16_t x0, int16_t y0, int16_t r,
         SSD1306_drawLine(x0 + y, y0 - x, x0 - y, y0 - x, color);
     }
 
-    return;
+    return LCD_OK;
 }
 
 
-void SSD1306_lcdOn(void) {
+SSD1306_status_t SSD1306_lcdOn(void) {
 	SSD1306_WRITECOMMAND(0x8D);  
 	SSD1306_WRITECOMMAND(0x14);  
 	SSD1306_WRITECOMMAND(0xAF);
 
-	return;
+	return LCD_OK;
 }
 
 
-void SSD1306_lcdOff(void) {
+SSD1306_status_t SSD1306_lcdOff(void) {
 	SSD1306_WRITECOMMAND(0x8D);  
 	SSD1306_WRITECOMMAND(0x10);
 	SSD1306_WRITECOMMAND(0xAE);
 
-	return;
+	return LCD_OK;
 }
 
 

@@ -1,129 +1,112 @@
 /**
- * original author:  Tilen Majerle<tilen@majerle.eu>
- * modification for STM32f10x: Alexander Lutsai<s.lyra@ya.ru>
-   ----------------------------------------------------------------------
-   	Copyright (C) Alexander Lutsai, 2016
-    Copyright (C) Tilen Majerle, 2015
-    
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    any later version.
-     
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-    
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-   ----------------------------------------------------------------------
+ * @file   fonts.h
+ * @brief  Font header file of SSD1306 driver module for STM32f10x and STM32F4xx.
+ *
+ * 		   The original version has been improved with various bug fixes and
+ * 		   the code has been restructured paying attention to maximize the
+ * 		   portability on resource-constrained devices. This SSD1306 LCD driver
+ * 		   uses I2C for communication. Library functions allow to draw lines,
+ * 		   rectangles and circles. It is also possible to draw text and single
+ * 		   characters only.
+ *
+ *         <b>LIBRARY USAGE:</b>
+ *         <ol>
+ *         	 <li> Find the "driver settings" section in the ssd1306.h
+ * 		          file and uncomment the correct define to make the library
+ * 		          compatible with your target STM32 microcontroller. </li>
+ * 		     <li> Before drawing on the screen, remember to call the
+ * 		          @ref SSD1306_init initialization function passing a pointer
+ * 		          to a valid i2c peripheral. </li>
+ * 		   </ol>
+ *
+ * 		   Supported fonts:
+ * 		   <ul>
+ *  		 <li> 7x10 pixels. </li>
+ *  		 <li> 11x18 pixels. </li>
+ *  		 <li> 16x26 pixels. </li>
+ *  	   </ul>
+ *
+ * @copyright
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  any later version.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *  GNU General Public License for more details.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author Giovanni Scotti
+ *
+ * @attention
+ * Original author: Tilen Majerle <tilen@majerle.eu>
+ * Modification for STM32f10x: Alexander Lutsai <s.lyra@ya.ru>
  */
-#ifndef FONTS_H
-#define FONTS_H 120
+
+#ifndef __FONTS_H
+#define __FONTS_H
 
 /* C++ detection */
 #ifdef __cplusplus
-extern C {
+	extern C {
 #endif
 
-/**
- *
- * Default fonts library. It is used in all LCD based libraries.
- *
- * \par Supported fonts
- * 
- * Currently, these fonts are supported:
- *  - 7 x 10 pixels
- *  - 11 x 18 pixels
- *  - 16 x 26 pixels
- */
 #include "stm32f1xx_hal.h"
 #include "string.h"
 
-/**
- * @defgroup LIB_Typedefs
- * @brief    Library Typedefs
- * @{
- */
 
 /**
- * @brief  Font structure used on my LCD libraries
+ * @brief Structure storing font information.
  */
 typedef struct {
-	uint8_t FontWidth;    /*!< Font width in pixels */
-	uint8_t FontHeight;   /*!< Font height in pixels */
-	const uint16_t *data; /*!< Pointer to data font data array */
+	uint8_t fontWidth;    /*!< Font width in pixels. */
+	uint8_t fontHeight;   /*!< Font height in pixels. */
+	const uint16_t *data; /*!< Pointer to font data array. */
 } FontDef_t;
 
 /** 
- * @brief  String length and height 
+ * @brief Structure used in conjunction with @ref get_string_size. It stores
+ *        information about the length and height of the given string.
  */
 typedef struct {
-	uint16_t Length;      /*!< String length in units of pixels */
-	uint16_t Height;      /*!< String height in units of pixels */
-} FONTS_SIZE_t;
+	uint16_t length; /*!< String length in units of pixels */
+	uint16_t height; /*!< String height in units of pixels */
+} FontStringSize_t;
+
 
 /**
- * @}
+ * @brief 7x10 pixels font size structure.
  */
+extern FontDef_t FontDef_7x10;
 
 /**
- * @defgroup FONTS_FontVariables
- * @brief    Library font variables
- * @{
+ * @brief 11x18 pixels font size structure.
  */
+extern FontDef_t FontDef_11x18;
 
 /**
- * @brief  7 x 10 pixels font size structure 
+ * @brief 16x26 pixels font size structure.
  */
-extern FontDef_t Font_7x10;
+extern FontDef_t FontDef_16x26;
+
 
 /**
- * @brief  11 x 18 pixels font size structure 
+ * @brief      Calculates the length and height in units of pixels of the given
+ *             string depending on the used font.
+ *
+ * @param[in]  *str: string to be checked for length and height.
+ * @param[out] *sizeStruct: pointer to empty @ref FontStringSize_t structure
+ *             where string information are stored.
+ * @param[in]  *font: pointer to @ref FontDef_t font used for calculations.
  */
-extern FontDef_t Font_11x18;
-
-/**
- * @brief  16 x 26 pixels font size structure 
- */
-extern FontDef_t Font_16x26;
-
-/**
- * @}
- */
- 
-/**
- * @defgroup FONTS_Functions
- * @brief    Library functions
- * @{
- */
-
-/**
- * @brief  Calculates string length and height in units of pixels depending on string and font used
- * @param  *str: String to be checked for length and height
- * @param  *SizeStruct: Pointer to empty @ref FONTS_SIZE_t structure where informations will be saved
- * @param  *Font: Pointer to @ref FontDef_t font used for calculations
- * @retval Pointer to string used for length and height
- */
-char* FONTS_GetStringSize(char* str, FONTS_SIZE_t* SizeStruct, FontDef_t* Font);
-
-/**
- * @}
- */
- 
-/**
- * @}
- */
- 
-/**
- * @}
- */
+void get_string_size(char *str, FontStringSize_t *sizeStruct, FontDef_t *font);
 
 /* C++ detection */
 #ifdef __cplusplus
-}
+	}
 #endif
 
  
-#endif
+#endif // __FONT_H

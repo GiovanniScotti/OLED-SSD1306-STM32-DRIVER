@@ -1,24 +1,47 @@
 /**
- * original author:  Tilen Majerle<tilen@majerle.eu>
- * modification for STM32f10x: Alexander Lutsai<s.lyra@ya.ru>
-   ----------------------------------------------------------------------
-   	Copyright (C) Alexander Lutsai, 2016
-    Copyright (C) Tilen Majerle, 2015
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    any later version.
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-   ----------------------------------------------------------------------
+ * @file   fonts.c
+ * @brief  Font source file of SSD1306 driver module for STM32f10x and STM32F4xx.
+ *
+ * 		   The original version has been improved with various bug fixes and
+ * 		   the code has been restructured paying attention to maximize the
+ * 		   portability on resource-constrained devices. This SSD1306 LCD driver
+ * 		   uses I2C for communication. Library functions allow to draw lines,
+ * 		   rectangles and circles. It is also possible to draw text and single
+ * 		   characters only.
+ *
+ *         <b>LIBRARY USAGE:</b>
+ *         <ol>
+ *         	 <li> Find the "driver settings" section in the ssd1306.h
+ * 		          file and uncomment the correct define to make the library
+ * 		          compatible with your target STM32 microcontroller. </li>
+ * 		     <li> Before drawing on the screen, remember to call the
+ * 		          @ref SSD1306_init initialization function passing a pointer
+ * 		          to a valid i2c peripheral. </li>
+ * 		   </ol>
+ *
+ * @copyright
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  any later version.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *  GNU General Public License for more details.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author Giovanni Scotti
+ *
+ * @attention
+ * Original author: Tilen Majerle <tilen@majerle.eu>
+ * Modification for STM32f10x: Alexander Lutsai <s.lyra@ya.ru>
  */
+
 #include "fonts.h"
 
-const uint16_t Font7x10 [] = {
+
+const uint16_t font_7x10 [] = {
 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,  // sp
 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x0000, 0x1000, 0x0000, 0x0000,  // !
 0x2800, 0x2800, 0x2800, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,  // "
@@ -116,7 +139,7 @@ const uint16_t Font7x10 [] = {
 0x0000, 0x0000, 0x0000, 0x7400, 0x4C00, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,  // ~
 };
 
-const uint16_t Font11x18 [] = {
+const uint16_t font_11x18 [] = {
 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // sp
 0x0000, 0x0C00, 0x0C00, 0x0C00, 0x0C00, 0x0C00, 0x0C00, 0x0C00, 0x0C00, 0x0C00, 0x0C00, 0x0C00, 0x0000, 0x0C00, 0x0C00, 0x0000, 0x0000, 0x0000,   // !
 0x0000, 0x1B00, 0x1B00, 0x1B00, 0x1B00, 0x1B00, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // "
@@ -214,7 +237,7 @@ const uint16_t Font11x18 [] = {
 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x3880, 0x7F80, 0x4700, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,   // ~
 };
 
-const uint16_t Font16x26 [] = {
+const uint16_t font_16x26 [] = {
 0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000, // Ascii = [ ]
 0x03E0,0x03E0,0x03E0,0x03E0,0x03E0,0x03E0,0x03E0,0x03E0,0x03C0,0x03C0,0x01C0,0x01C0,0x01C0,0x01C0,0x01C0,0x0000,0x0000,0x0000,0x03E0,0x03E0,0x03E0,0x0000,0x0000,0x0000,0x0000,0x0000, // Ascii = [!]
 0x1E3C,0x1E3C,0x1E3C,0x1E3C,0x1E3C,0x1E3C,0x1E3C,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000, // Ascii = ["]
@@ -313,29 +336,28 @@ const uint16_t Font16x26 [] = {
 };
 
 
-FontDef_t Font_7x10 = {
-	7,
-	10,
-	Font7x10
+FontDef_t FontDef_7x10 = {
+	.fontWidth = 7,
+	.fontHeight = 10,
+	.data = font_7x10
 };
 
-FontDef_t Font_11x18 = {
-	11,
-	18,
-	Font11x18
+FontDef_t FontDef_11x18 = {
+	.fontWidth = 11,
+	.fontHeight = 18,
+	.data = font_11x18
 };
 
-FontDef_t Font_16x26 = {
-	16,
-	26,
-	Font16x26
+FontDef_t FontDef_16x26 = {
+	.fontWidth = 16,
+	.fontHeight = 26,
+	.data = font_16x26
 };
 
-char* FONTS_GetStringSize(char* str, FONTS_SIZE_t* SizeStruct, FontDef_t* Font) {
-	/* Fill settings */
-	SizeStruct->Height = Font->FontHeight;
-	SizeStruct->Length = Font->FontWidth * strlen(str);
-	
-	/* Return pointer */
-	return str;
+
+void get_string_size(char* str, FontStringSize_t *sizeStruct, FontDef_t *font) {
+	sizeStruct->height = font->fontHeight;
+	sizeStruct->length = font->fontWidth * strlen(str);
+
+	return;
 }
