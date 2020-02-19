@@ -385,8 +385,6 @@ SSD1306_status_t SSD1306_gotoXY(uint16_t x, uint16_t y) {
 
 
 SSD1306_status_t SSD1306_putc(char ch, FontDef_t* font, SSD1306_color_t color) {
-	uint16_t b;
-	
 	// Check available space on the visible LCD area.
 	if (SSD1306_WIDTH <= (SSD1306.currentX + font->fontWidth) ||
 		SSD1306_HEIGHT <= (SSD1306.currentY + font->fontHeight)) {
@@ -397,7 +395,7 @@ SSD1306_status_t SSD1306_putc(char ch, FontDef_t* font, SSD1306_color_t color) {
 	for (uint8_t i = 0; i < font->fontHeight; i++) {
 		// Since the first available character of the ASCII table is 'space'
 		// (32d), subtracts it from the given char to compute the array index.
-		b = font->data[(ch - 32) * font->fontHeight + i];
+		uint16_t b = font->data[(ch - 32) * font->fontHeight + i];
 
 		for (uint8_t j = 0; j < font->fontWidth; j++) {
 			if ((b << j) & 0x8000) {
@@ -467,7 +465,6 @@ SSD1306_status_t SSD1306_drawLine(uint16_t x0, uint16_t y0, uint16_t x1,
 
 		if (x1 < x0) {
 			tmp = x1;
-			x1 = x0;
 			x0 = tmp;
 		}
 
@@ -484,7 +481,6 @@ SSD1306_status_t SSD1306_drawLine(uint16_t x0, uint16_t y0, uint16_t x1,
 	if (dy == 0) {
 		if (y1 < y0) {
 			tmp = y1;
-			y1 = y0;
 			y0 = tmp;
 		}
 
