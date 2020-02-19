@@ -326,7 +326,7 @@ SSD1306_status_t SSD1306_gotoXY(uint16_t x, uint16_t y);
  * @retval    A valid SSD1306 LCD status as described by @ref SSD1306_status_t
  *            enumeration.
  */
-SSD1306_status_t SSD1306_putc(char ch, FontDef_t* font, SSD1306_color_t color);
+SSD1306_status_t SSD1306_putc(char ch, FontDef_t *font, SSD1306_color_t color);
 
 
 /**
@@ -341,7 +341,24 @@ SSD1306_status_t SSD1306_putc(char ch, FontDef_t* font, SSD1306_color_t color);
  * @retval    A valid SSD1306 LCD status as described by @ref SSD1306_status_t
  *            enumeration.
  */
-SSD1306_status_t SSD1306_puts(char* str, FontDef_t* font, SSD1306_color_t color);
+SSD1306_status_t SSD1306_puts(char* str, FontDef_t *font, SSD1306_color_t color);
+
+
+/**
+ * @brief     Converts the given signed number into a string of the specified
+ * 			  base and prints it on the LCD. @ref SSD1306_updateScreen() must
+ * 			  be called after that in order to see updates on the LCD screen.
+ *
+ * @param[in] num: the signed number to print.
+ * @param[in] base: the conversion base.
+ * @param[in] *font: pointer to @ref FontDef_t structure with the used font.
+ * @param[in] color: color used for drawing. This parameter can be a value of
+ *            @ref SSD1306_color_t enumeration.
+ * @retval    A valid SSD1306 LCD status as described by @ref SSD1306_status_t
+ *            enumeration.
+ */
+SSD1306_status_t SSD1306_putInt(int32_t num, uint8_t base, FontDef_t *font,
+	SSD1306_color_t color);
 
 
 /**

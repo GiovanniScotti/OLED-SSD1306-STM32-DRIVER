@@ -384,7 +384,7 @@ SSD1306_status_t SSD1306_gotoXY(uint16_t x, uint16_t y) {
 }
 
 
-SSD1306_status_t SSD1306_putc(char ch, FontDef_t* font, SSD1306_color_t color) {
+SSD1306_status_t SSD1306_putc(char ch, FontDef_t *font, SSD1306_color_t color) {
 	// Check available space on the visible LCD area.
 	if (SSD1306_WIDTH <= (SSD1306.currentX + font->fontWidth) ||
 		SSD1306_HEIGHT <= (SSD1306.currentY + font->fontHeight)) {
@@ -415,11 +415,70 @@ SSD1306_status_t SSD1306_putc(char ch, FontDef_t* font, SSD1306_color_t color) {
 }
 
 
-SSD1306_status_t SSD1306_puts(char* str, FontDef_t* font, SSD1306_color_t color) {
+SSD1306_status_t SSD1306_puts(char* str, FontDef_t *font, SSD1306_color_t color) {
 	while (*str) {
 		// Write character by character.
 		SSD1306_putc(*str, font, color);
 		str++;
+	}
+
+	return LCD_OK;
+}
+
+
+SSD1306_status_t SSD1306_putInt(int32_t num, uint8_t base, FontDef_t *font,
+	SSD1306_color_t color) {
+
+	char buff[32];
+
+	if (base < 2 || base > 32) {
+		return INVALID_PARAMS;
+	}
+
+	int32_t i = 0;
+	int32_t num_abs = ABS(num);
+	uint8_t is_negative = 0;
+
+	if (num == 0) {
+		buff[0] = '0';
+		buff[1] = '\0';
+	} else {
+		if (num < 0 && base == 10) {
+			is_negative = 1;
+		}
+
+		// Processes individual digits.
+		while (num_abs) {
+			int32_t rem = num_abs % base;
+			buff[i++] = (rem > 9) ? (rem - 10) + 'A' : rem + '0';
+			num_abs /= base;
+		}
+
+		if (is_negative)
+			buff[i++] = '-';
+
+		buff[i] = '\0';
+
+		// Inverts the buffer by swapping characters.
+		uint8_t start = 0;
+		uint8_t end = i - 1;
+		while (start < end) {
+			char c_tmp = buff[start];
+			buff[start] = buff[end];
+			buff[end] = c_tmp;
+
+			start++;
+			end--;
+		}
+	}
+
+	char *buff_ptr = buff;
+
+	// Prints the string of the converted integer.
+	while (*buff_ptr) {
+		// Write character by character.
+		SSD1306_putc(*buff_ptr, font, color);
+		buff_ptr++;
 	}
 
 	return LCD_OK;
