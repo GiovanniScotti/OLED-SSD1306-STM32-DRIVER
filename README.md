@@ -1,4 +1,4 @@
-TODO: codacy badge.
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/dee6f005b2004c4092abbeed8aae6317)](https://www.codacy.com/manual/hardware994/OLED-SSD1306-STM32-DRIVER?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=GiovanniScotti/OLED-SSD1306-STM32-DRIVER&amp;utm_campaign=Badge_Grade)
 
 # OLED SSD1306 driver for STM32 microcontrollers
 ## Introduction
